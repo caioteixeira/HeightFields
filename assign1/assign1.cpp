@@ -60,31 +60,77 @@ void saveScreenshot (char *filename)
   pic_free(in);
 }
 
+void reshape(int w, int h)
+{
+	GLfloat aspect = (GLfloat)w / (GLfloat)h;
+	glViewport(0, 0, w, h);
+
+	//Set up view
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(90.0, aspect, 1.0, 20.0);
+	glMatrixMode(GL_MODELVIEW);
+}
+
 void myinit()
 {
   /* setup gl view here */
   glClearColor(0.0, 0.0, 0.0, 0.0);
 }
 
+GLfloat getHeight(int j, int i)
+{
+	unsigned char red = PIC_PIXEL(g_pHeightData, j, i, 0);
+	unsigned char green = PIC_PIXEL(g_pHeightData, j, i, 1);
+	unsigned char blue = PIC_PIXEL(g_pHeightData, j, i, 2);
+
+	return (GLfloat) (0.3*red + 0.3*green + 0.4*blue)/255;
+}
+
+void render()
+{
+	int width = g_pHeightData->ny;
+	int height = g_pHeightData->nx;
+
+	for (int i = 0; i < width - 1; i++)
+	{
+		glBegin(GL_TRIANGLE_STRIP);
+		for (int j = 0; j < height; j++)
+		{
+			GLfloat x = (GLfloat)j / height;
+			GLfloat y = (GLfloat)i / width;
+			GLfloat heightVal = getHeight(j, i);
+			glColor3f(1.0-heightVal, 1.0-heightVal, 1.0);
+			glVertex3f(x, heightVal , y);
+
+			x = (GLfloat)j / height;
+			y = (GLfloat)(i + 1) / width;
+			heightVal = getHeight(j, i+1);
+			glColor3f(1.0-heightVal, 1.0-heightVal, 1.0);
+			glVertex3f(x, heightVal, y);
+		}
+		glEnd();
+	}
+}
+
 void display()
 {
-  /* draw 1x1 cube about origin */
-  /* replace this code with your height field implementation */
-  /* you may also want to precede it with your 
-rotation/translation/scaling */
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glLoadIdentity();
 
-  glBegin(GL_POLYGON);
+	/*Transformations of the current world state*/
+	glTranslatef(g_vLandTranslate[0], g_vLandTranslate[1], g_vLandTranslate[2]);
+	glRotatef(g_vLandRotate[0], 1.0, 0.0, 0.0);
+	glRotatef(g_vLandRotate[1], 0.0, 1.0, 0.0);
+	glRotatef(g_vLandRotate[2], 0.0, 0.0, 1.0);
+	glScalef(g_vLandScale[0], g_vLandScale[1], g_vLandScale[2]);
 
-  glColor3f(1.0, 1.0, 1.0);
-  glVertex3f(-0.5, -0.5, 0.0);
-  glColor3f(0.0, 0.0, 1.0);
-  glVertex3f(-0.5, 0.5, 0.0);
-  glColor3f(0.0, 0.0, 0.0);
-  glVertex3f(0.5, 0.5, 0.0);
-  glColor3f(1.0, 1.0, 0.0);
-  glVertex3f(0.5, -0.5, 0.0);
+	/*Rendering*/
+	render();
+	
 
-  glEnd();
+	glutSwapBuffers();
 }
 
 void menufunc(int value)
@@ -211,14 +257,19 @@ int main(int argc, char* argv[])
 	}
 
 	glutInit(&argc,(char**)argv);
-  
+	
 	/*
-		create a window here..should be double buffered and use depth testing
-  
-	    the code past here will segfault if you don't have a window set up....
-	    replace the exit once you add those calls.
+	create a window here..should be double buffered and use depth testing
+
+	the code past here will segfault if you don't have a window set up....
+	replace the exit once you add those calls.
 	*/
-	exit(0);
+	glutInitDisplayMode(GLUT_DOUBLE | GLUT_DEPTH | GLUT_RGB);
+	//Window creation
+	glutInitWindowSize(640, 480);
+	glutInitWindowPosition(0, 0);
+	glutCreateWindow("Height Field");
+	glEnable(GL_DEPTH_TEST);
 
 	/* tells glut to use a particular display function to redraw */
 	glutDisplayFunc(display);
