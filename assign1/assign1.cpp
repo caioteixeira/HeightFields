@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <GL/glu.h>
 #include <GL/glut.h>
+#include <iostream>
 
 int g_iMenuId;
 
@@ -26,12 +27,28 @@ typedef enum { ROTATE, TRANSLATE, SCALE } CONTROLSTATE;
 CONTROLSTATE g_ControlState = ROTATE;
 
 /* state of the world */
+/* Arbitrary good initial values*/
 float g_vLandRotate[3] = {0.0, 0.0, 0.0};
-float g_vLandTranslate[3] = {0.0, 0.0, 0.0};
+float g_vLandTranslate[3] = { -0.45, -0.45, 0.0 };
 float g_vLandScale[3] = {1.0, 1.0, 1.0};
+
+/* Render mode. */
+typedef enum { VERTICES, WIREFRAME, TRIANGLES} RENDERMODE;
+RENDERMODE g_RenderMode = TRIANGLES;
+
+/* Color Mode*/
+typedef enum { HEIGHT, COLOR} COLORMODE;
+COLORMODE g_ColorMode = HEIGHT;
+
+/* Window scale*/
+float g_width = 640;
+float g_height = 480;
 
 /* see <your pic directory>/pic.h for type Pic */
 Pic * g_pHeightData;
+
+/* Color data*/
+Pic * g_pColorData;
 
 /* Write a screenshot to the specified filename */
 void saveScreenshot (char *filename)
@@ -63,12 +80,12 @@ void saveScreenshot (char *filename)
 void reshape(int w, int h)
 {
 	GLfloat aspect = (GLfloat)w / (GLfloat)h;
-	glViewport(0, 0, w, h);
+	
 
 	//Set up view
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(90.0, aspect, 1.0, 20.0);
+	gluPerspective(30.0, aspect, 0.1, 1000.0);
 	glMatrixMode(GL_MODELVIEW);
 }
 
@@ -76,6 +93,8 @@ void myinit()
 {
   /* setup gl view here */
   glClearColor(0.0, 0.0, 0.0, 0.0);
+
+  glEnable(GL_DEPTH_TEST);
 }
 
 GLfloat getHeight(int j, int i)
@@ -85,6 +104,25 @@ GLfloat getHeight(int j, int i)
 	unsigned char blue = PIC_PIXEL(g_pHeightData, j, i, 2);
 
 	return (GLfloat) (0.3*red + 0.3*green + 0.4*blue)/255;
+}
+
+void setColor(int x, int y, GLfloat heightVal)
+{
+	//If Color Data is Null
+	if (g_ColorMode == COLOR && !g_pColorData)
+		g_ColorMode = HEIGHT;
+
+	//Set the color for the current pixel
+	if (g_ColorMode == COLOR)
+	{
+		unsigned char red = PIC_PIXEL(g_pColorData, x, y, 0);
+		unsigned char green = PIC_PIXEL(g_pColorData, x, y, 1);
+		unsigned char blue = PIC_PIXEL(g_pColorData, x, y, 2);
+		glColor3f((GLfloat)red / 255, (GLfloat)green / 255, (GLfloat)blue /255);
+	}
+	else{
+		glColor3f(1.0 - heightVal, 1.0 - heightVal, 1.0);
+	}
 }
 
 void render()
@@ -97,17 +135,19 @@ void render()
 		glBegin(GL_TRIANGLE_STRIP);
 		for (int j = 0; j < height; j++)
 		{
+			//Top Vertex
 			GLfloat x = (GLfloat)j / height;
 			GLfloat y = (GLfloat)i / width;
 			GLfloat heightVal = getHeight(j, i);
-			glColor3f(1.0-heightVal, 1.0-heightVal, 1.0);
-			glVertex3f(x, heightVal , y);
+			setColor(j, i, heightVal);
+			glVertex3f(x, y, heightVal/2);
 
+			//Bottom Vertex
 			x = (GLfloat)j / height;
 			y = (GLfloat)(i + 1) / width;
 			heightVal = getHeight(j, i+1);
-			glColor3f(1.0-heightVal, 1.0-heightVal, 1.0);
-			glVertex3f(x, heightVal, y);
+			setColor(j, i+1, heightVal);
+			glVertex3f(x, y, heightVal/2);
 		}
 		glEnd();
 	}
@@ -115,7 +155,20 @@ void render()
 
 void display()
 {
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	//Update the renderMode
+	switch (g_RenderMode)
+	{
+	case VERTICES:
+		glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+		break;
+	case WIREFRAME:
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		break;
+	case TRIANGLES:
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		break;
+	}
+	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glLoadIdentity();
 
@@ -150,6 +203,35 @@ void doIdle()
   /* make the screen update */
   glutPostRedisplay();
 }
+
+
+/*Keyboard callback*/
+void keyboard(unsigned char key, int x, int y)
+{
+	//Rendermodes
+	switch (key)
+	{
+	case '1':
+		g_RenderMode = VERTICES;
+		break;
+	case '2':
+		g_RenderMode = WIREFRAME;
+		break;
+	case '3':
+		g_RenderMode = TRIANGLES;
+		break;
+	case '4':
+		g_ColorMode = HEIGHT;
+		break;
+	case '5':
+		g_ColorMode = COLOR;
+		break;
+	}
+	
+
+}
+
+
 
 /* converts mouse drags into information about 
 rotation/translation/scaling */
@@ -256,6 +338,15 @@ int main(int argc, char* argv[])
 	    exit(1);
 	}
 
+	if (argc = 3)
+	{
+		g_pColorData = jpeg_read((char*)argv[2], NULL);
+	}
+	else
+	{
+		g_pColorData = NULL;
+	}
+
 	glutInit(&argc,(char**)argv);
 	
 	/*
@@ -266,10 +357,9 @@ int main(int argc, char* argv[])
 	*/
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_DEPTH | GLUT_RGB);
 	//Window creation
-	glutInitWindowSize(640, 480);
+	glutInitWindowSize(g_width, g_height);
 	glutInitWindowPosition(0, 0);
 	glutCreateWindow("Height Field");
-	glEnable(GL_DEPTH_TEST);
 
 	/* tells glut to use a particular display function to redraw */
 	glutDisplayFunc(display);
@@ -289,6 +379,9 @@ int main(int argc, char* argv[])
 	glutPassiveMotionFunc(mouseidle);
 	/* callback for mouse button changes */
 	glutMouseFunc(mousebutton);
+	/* callback for keyboard changes*/
+	glutKeyboardFunc(keyboard);
+
 
 	/* do initialization */
 	myinit();
