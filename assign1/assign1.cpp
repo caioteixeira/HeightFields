@@ -15,6 +15,7 @@
 #include <GL/glut.h>
 #include <iostream>
 
+
 int g_iMenuId;
 
 int g_vMousePos[2] = {0, 0};
@@ -49,6 +50,11 @@ Pic * g_pHeightData;
 
 /* Color data*/
 Pic * g_pColorData;
+
+/* Recording control*/
+bool isRecording = false;
+int nPictures = 0;
+char fileName[] = "CSCI420-HeightFields";
 
 /* Write a screenshot to the specified filename */
 void saveScreenshot (char *filename)
@@ -96,6 +102,7 @@ void myinit()
 
   glEnable(GL_DEPTH_TEST);
 }
+
 
 GLfloat getHeight(int j, int i)
 {
@@ -198,7 +205,14 @@ void menufunc(int value)
 
 void doIdle()
 {
-  /* do some stuff... */
+  /* recording stuff */
+	if (isRecording)
+	{
+		char myFilenm[100];
+		sprintf_s(myFilenm, "anim.%04d.jpg", nPictures);
+		saveScreenshot(myFilenm);
+		nPictures++;
+	}
 
   /* make the screen update */
   glutPostRedisplay();
@@ -208,7 +222,7 @@ void doIdle()
 /*Keyboard callback*/
 void keyboard(unsigned char key, int x, int y)
 {
-	//Rendermodes
+	//Rendermodes and screenshot
 	switch (key)
 	{
 	case '1':
@@ -225,6 +239,9 @@ void keyboard(unsigned char key, int x, int y)
 		break;
 	case '5':
 		g_ColorMode = COLOR;
+		break;
+	case 'r':
+		isRecording = !isRecording;
 		break;
 	}
 	
